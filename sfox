@@ -1,0 +1,92 @@
+#!/bin/bash
+#
+# usage: sfox <name> ...
+
+set -ue
+
+: ${FIREFOX:=$HOME/firefox/firefox}
+: ${SFOXDIR:=$HOME/.sfox}
+: ${SFOXDISPLAY:=}
+: ${SFOXGEOMETRY:=1024x768}
+: ${SFOXWM:=metacity}
+
+RESET=0
+
+if [[ -f $SFOXDIR/config ]]; then
+	. $SFOXDIR/config
+fi
+
+while [[ $# -gt 0 ]]; do
+	case $1 in
+	(-d|--display)
+		SFOXDISPLAY=$2
+		shift 2
+		;;
+
+	(-g|--geometry)
+		SFOXGEOMETRY=$2
+		shift 2
+		;;
+
+	(-w|--window-manager)
+		SFOXWM=$2
+		shift 2
+		;;
+
+	(--reset)
+		RESET=1
+		shift
+		;;
+
+	(--)	shift
+		break
+		;;
+
+	(-*)	echo "ERROR: unknown option: $1" >&2
+		exit 2
+		;;
+
+	(*)	break
+		;;
+	esac
+done
+
+if [[ $# -lt 1 ]]; then
+	echo "$0: usage: $0 <name> [...]" >&2
+	exit 2
+fi
+
+name=$1
+shift
+
+SFHOME=$SFOXDIR/home/$name
+if [[ $RESET = 1 ]]; then
+	rm -rf $SFHOME
+fi
+mkdir -p $SFHOME
+
+if ! [ -d $SFHOME/Downloads ]; then
+	ln -sf $HOME/Downloads $SFHOME/Downloads
+fi
+
+cat > $SFHOME/.xbindkeysrc <<EOF
+"dmenu_run"
+  alt + shift + r
+EOF
+
+cat > $SFHOME/xinitrc <<EOF
+#!/bin/sh
+
+$SFOXWM &
+xbindkeys &
+$FIREFOX $*
+EOF
+
+chmod 755 $SFHOME/xinitrc
+
+HOME=$SFHOME
+export HOME
+
+startx $SFHOME/xinitrc -- \
+	/usr/bin/Xephyr $SFOXDISPLAY -screen $SFOXGEOMETRY -terminate \
+	>& /dev/null
