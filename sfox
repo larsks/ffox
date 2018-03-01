@@ -6,11 +6,22 @@ set -ue
 
 : ${FIREFOX:=$HOME/firefox/firefox}
 : ${SFOXDIR:=$HOME/.sfox}
-: ${SFOXDISPLAY:=}
 : ${SFOXGEOMETRY:=1024x768}
 : ${SFOXWM:=metacity}
 
 RESET=0
+
+usage() {
+	cat <<-EOF
+	$0: usage: ${0##*/} [ --geometry <geometry> ] [ --reset ] name [...args...]
+
+	--geometry (-g) - size of virtual framebuffer
+	--window-manager (-w) - use a window manager other than metacity
+	--reset - remove and re-create sandbox home directory
+
+	[...args...] - any valid Firefox command line arguments
+	EOF
+}
 
 if [[ -f $SFOXDIR/config ]]; then
 	. $SFOXDIR/config
@@ -18,11 +29,6 @@ fi
 
 while [[ $# -gt 0 ]]; do
 	case $1 in
-	(-d|--display)
-		SFOXDISPLAY=$2
-		shift 2
-		;;
-
 	(-g|--geometry)
 		SFOXGEOMETRY=$2
 		shift 2
@@ -38,11 +44,18 @@ while [[ $# -gt 0 ]]; do
 		shift
 		;;
 
+	(--help)
+		shift
+		usage
+		exit 0
+		;;
+
 	(--)	shift
 		break
 		;;
 
 	(-*)	echo "ERROR: unknown option: $1" >&2
+		usage >&2
 		exit 2
 		;;
 
@@ -52,7 +65,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $# -lt 1 ]]; then
-	echo "$0: usage: $0 <name> [...]" >&2
+	usage >&2
 	exit 2
 fi
 
@@ -84,9 +97,7 @@ EOF
 
 chmod 755 $SFHOME/xinitrc
 
-HOME=$SFHOME
-export HOME
-
-startx $SFHOME/xinitrc -- \
-	/usr/bin/Xephyr $SFOXDISPLAY -screen $SFOXGEOMETRY -terminate \
+export HOME=$SFHOME
+exec startx $SFHOME/xinitrc -- \
+	/usr/bin/Xephyr -screen $SFOXGEOMETRY -terminate \
 	>& /dev/null
